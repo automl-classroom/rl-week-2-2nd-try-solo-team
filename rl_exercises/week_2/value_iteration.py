@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Tuple
 
-import gymnasium
 import numpy as np
 from rl_exercises.agent import AbstractAgent
 from rl_exercises.environments import MarsRover
@@ -33,7 +32,7 @@ class ValueIteration(AbstractAgent):
 
     def __init__(
         self,
-        env: MarsRover | gymnasium.Env,
+        env: MarsRover,
         gamma: float = 0.9,
         seed: int = 333,
         **kwargs: dict,
@@ -46,13 +45,14 @@ class ValueIteration(AbstractAgent):
         self.gamma = gamma
         self.seed = seed
 
-        # TODO: Extract MDP components from the environment
-        self.S = None
-        self.A = None
-        self.T = None
-        self.R_sa = None
-        self.n_states = None
-        self.n_actions = None
+        self.S = env.states
+        self.A = env.actions
+        self.T = env.get_transition_matrix()
+        self.R = env.get_reward_per_action()
+        self.gamma = gamma
+        self.R_sa = env.get_reward_per_action()
+        self.n_actions = env.action_space.n  # type: ignore[attr-defined]
+        self.n_states = env.observation_space.n  # type: ignore[attr-defined]
 
         # placeholders
         self.V = np.zeros(self.n_states, dtype=float)
@@ -71,7 +71,9 @@ class ValueIteration(AbstractAgent):
             seed=self.seed,
         )
 
-        # TODO: Call value_iteration() with extracted MDP components
+        self.V = V_opt
+        self.pi = pi_opt
+        self.policy_fitted = True
 
     def predict_action(
         self,
@@ -83,8 +85,7 @@ class ValueIteration(AbstractAgent):
         if not self.policy_fitted:
             self.update_agent()
 
-        # TODO: Return action from learned policy
-        raise NotImplementedError("predict_action() is not implemented.")
+        return self.pi[observation], {}
 
 
 def value_iteration(
@@ -127,8 +128,31 @@ def value_iteration(
     # rng = np.random.default_rng(seed)  uncomment this
     pi = None
 
-    # TODO: update V using the Q values until convergence
+    while True:
+        V_prev = V.copy()
+        for s in range(n_states):
+            Q = np.zeros(n_actions, dtype=float)
+            for a in range(n_actions):
+                Q[a] = R_sa[s, a] + gamma * np.sum(T[s, a, :] * V_prev)
+            V[s] = np.max(Q)
 
-    # TODO: Extract the greedy policy from V and update pi
+        # Check for convergence
+        if np.max(np.abs(V - V_prev)) < epsilon:
+            break
+
+    # Compute the greedy policy
+    pi = np.zeros(n_states, dtype=int)
+    for s in range(n_states):
+        Q = np.zeros(n_actions, dtype=float)
+        for a in range(n_actions):
+            Q[a] = R_sa[s, a] + gamma * np.sum(T[s, a, :] * V)
+        pi[s] = np.argmax(Q)
 
     return V, pi
+
+
+if __name__ == "__main__":
+    algo = ValueIteration(env=MarsRover())
+    print(algo.pi)
+    algo.update_agent()
+    print(algo.pi)
