@@ -34,6 +34,8 @@ class MyEnv(gym.Env):
         """Initializes the observation and action space for the environment."""
         self.observation_space = gym.spaces.Discrete(2)
         self.action_space = gym.spaces.Discrete(2)
+        self.states = np.arange(self.observation_space.n)
+        self.actions = np.arange(self.action_space.n)
 
         self.reset()
 
