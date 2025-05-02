@@ -115,5 +115,29 @@ class PartialObsWrapper(gym.Wrapper):
 
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, env: gym.Env, noise: float = 0.1, seed: int | None = None):
-        pass
+    def __init__(self, env: MyEnv, fault_prob: float = 0.1, seed: int | None = None):
+        self.observation_space = env.observation_space
+        self.action_space = env.action_space
+        self.env = env
+
+        assert 0 <= fault_prob <= 1, "fault_prob must be in [0, 1]"
+        self.fault_prob = fault_prob
+
+        self._rng = np.random.default_rng(seed)
+
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
+        true_obs, info = self.env.reset(seed=seed, options=options)
+        return self._inject_fault(true_obs), info
+
+    def step(self, action: int):
+        true_obs, reward, done, truncated, info = self.env.step(action)
+        return self._inject_fault(true_obs), reward, done, truncated, info
+
+    def _inject_fault(self, true_obs: int) -> int:
+        """Injects a fault into the observation with probability `fault_prob`."""
+        if self._rng.random() < self.fault_prob:
+            if true_obs == 0:
+                return 1
+            else:
+                return 0
+        return true_obs
